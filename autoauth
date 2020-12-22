@@ -1,0 +1,17 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+start() {
+    /etc/autoauth.sh auto-auth:S &
+}
+stop() {
+    PID=$(ps -ef | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    if [ -n "$PID" ]; then
+        kill -9 $PID
+    fi
+}
+restart() {
+    stop
+    start
+}
