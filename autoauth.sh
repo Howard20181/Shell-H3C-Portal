@@ -191,8 +191,10 @@ while [ true ]; do
     if [ "$CONNECT" = true ]; then
         reflush_TIME
         TMP=$(($TIME_CUR - $CONNECT_TIME))
-        if [ "${requires_heartBeat}" = true -a $TMP -gt "$heartBeatCyc_TRUE" ]; then
-            doHeartBeat
+        if [ "${requires_heartBeat}" = true ]; then
+            if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
+                doHeartBeat
+            fi
         fi
     elif [ "$CONNECT" = false ]; then
         check_SHOULD_STOP
