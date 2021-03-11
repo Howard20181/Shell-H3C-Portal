@@ -3,10 +3,13 @@
 START=99
 
 start() {
-    /etc/autoauth.sh auto-auth:S &
+    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    if [ ! -n "$PID" ]; then
+        /etc/autoauth.sh auto-auth:S &
+    fi
 }
 stop() {
-    PID=$(ps -ef | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
     if [ -n "$PID" ]; then
         kill -9 $PID
     fi
