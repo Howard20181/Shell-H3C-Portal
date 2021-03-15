@@ -85,32 +85,6 @@ doHeartBeat() {
     #echo doHeartBeat_INFO: $doHeartBeat_INFO #debug
 }
 
-loop() {
-    while [ true ]; do
-        check_connect
-        if [ "$CONNECT" = true ]; then
-            reflush_TIME
-            TMP=$(($TIME_CUR - $CONNECT_TIME))
-            if [ "${requires_heartBeat}" = true ]; then
-                if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
-                    doHeartBeat
-                fi
-            fi
-        elif [ "$CONNECT" = false ]; then
-            check_SHOULD_STOP
-            if [ "$SHOULD_STOP" = true ]; then
-                logger -t autoauth -p user.info "EXIT!"
-                break
-            elif [ "$SHOULD_STOP" = false ]; then
-                logger -t autoauth -p user.notice "Reconnecting"
-                echo Reconnecting
-                start_auth
-            fi
-        fi
-        sleep $SLEEP_TIME
-    done
-}
-
 start_auth() {
     logger -t autoauth -p user.info "Start auth"
     echo "Start auth"
@@ -216,14 +190,12 @@ start_auth() {
             fi
         fi
     fi
-    loop
 }
 
 check_info() {
     #echo 1:$1 2:$2 USERID: $USERID auto-auth:S #debug
     if [ -n "$1" ]; then
         USERID="$1"
-
         if [ -n "$2" ]; then
             PWD="$2"
         else
@@ -241,3 +213,27 @@ check_info() {
 }
 
 check_info $1 $2
+
+while [ true ]; do
+    check_connect
+    if [ "$CONNECT" = true ]; then
+        reflush_TIME
+        TMP=$(($TIME_CUR - $CONNECT_TIME))
+        if [ "${requires_heartBeat}" = true ]; then
+            if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
+                doHeartBeat
+            fi
+        fi
+    elif [ "$CONNECT" = false ]; then
+        check_SHOULD_STOP
+        if [ "$SHOULD_STOP" = true ]; then
+            logger -t autoauth -p user.info "EXIT!"
+            break
+        elif [ "$SHOULD_STOP" = false ]; then
+            logger -t autoauth -p user.notice "Reconnecting"
+            echo Reconnecting
+            start_auth
+        fi
+    fi
+    sleep $SLEEP_TIME
+done
