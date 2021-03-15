@@ -1,17 +1,17 @@
 #!/bin/sh /etc/rc.common
 
 START=99
-
+PNAME=auto-auth:S
 start() {
-    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    PID=$(ps | grep ${PNAME} | grep -v grep | awk '{print $1}')
     if [ ! -n "$PID" ]; then
-        /etc/autoauth.sh 190000000000 1234 auto-auth:S &
+        /etc/autoauth.sh 190000000000 1234 ${PNAME} &
     else
         echo The program is running, please do not run it repeatedly!
     fi
 }
 stop() {
-    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    PID=$(ps | grep ${PNAME} | grep -v grep | awk '{print $1}')
     if [ -n "$PID" ]; then
         kill -9 $PID
     fi

@@ -1,30 +1,16 @@
 #!/bin/sh
-if [ -n "$1" ]; then
-    USERID="$1"
+init() {
+    byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
+    byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
 
-    if [ -n "$2" ]; then
-        PWD="$2"
-    else
-        echo PWD_ERR! EXIT!
-        exit
-    fi
-else
-    echo USERID_ERR! EXIT!
-    exit
-fi
+    v_loginType="3"
+    v_is_selfLogin="0"
+    uamInitCustom="1"
+    uamInitLogo="H3C"
 
-echo USERID: $USERID #$PWD #debug
-
-byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
-byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
-
-v_loginType="3"
-v_is_selfLogin="0"
-uamInitCustom="1"
-uamInitLogo="H3C"
-
-portServFailedReason_json='{"63013":"用户已被加入黑名单","63015":"用户已失效","63018":"用户不存在或者用户没有申请该服务","63024":"端口绑定检查失败","63025":"MAC地址绑定检查失败","63026":"静态IP地址绑定检查失败","63027":"接入时段限制","63031":"用户密码错误，该用户已经被加入黑名单","63032":"密码错误，密码连续错误次数超过阈值将会加入黑名单","63634":"当前场景下绑定终端数量达到限制","63048":"设备IP绑定检查失败","63073":"用户在对应的场景下不允许接入","63100":"无效认证客户端版本"}'
-SLEEP_TIME="1"
+    portServFailedReason_json='{"63013":"用户已被加入黑名单","63015":"用户已失效","63018":"用户不存在或者用户没有申请该服务","63024":"端口绑定检查失败","63025":"MAC地址绑定检查失败","63026":"静态IP地址绑定检查失败","63027":"接入时段限制","63031":"用户密码错误，该用户已经被加入黑名单","63032":"密码错误，密码连续错误次数超过阈值将会加入黑名单","63634":"当前场景下绑定终端数量达到限制","63048":"设备IP绑定检查失败","63073":"用户在对应的场景下不允许接入","63100":"无效认证客户端版本"}'
+    SLEEP_TIME="1"
+}
 
 alias decodeURIComponent="sed 's/%/\\\\x/g' | xargs -0 printf '%b'"
 
@@ -103,6 +89,30 @@ doHeartBeat() {
         --insecure)
     reflush_CONNECT_TIME
     #echo doHeartBeat_INFO: $doHeartBeat_INFO #debug
+}
+
+loop() {
+    while [ true ]; do
+        check_connect
+        if [ "$CONNECT" = true ]; then
+            reflush_TIME
+            TMP=$(($TIME_CUR - $CONNECT_TIME))
+            if [ "${requires_heartBeat}" = true ]; then
+                if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
+                    doHeartBeat
+                fi
+            fi
+        elif [ "$CONNECT" = false ]; then
+            check_SHOULD_STOP
+            if [ "$SHOULD_STOP" = true ]; then
+                break
+            elif [ "$SHOULD_STOP" = false ]; then
+                echo Reconnecting
+                start_auth
+            fi
+        fi
+        sleep $SLEEP_TIME
+    done
 }
 
 start_auth() {
@@ -197,36 +207,38 @@ start_auth() {
             fi
         fi
     fi
+    loop
 }
 
 mutual_exclusion() {
     PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
     if [ ! -n "$PID" ]; then
+        echo start run
+        init
         start_auth
     else
-        echo 程序正在运行中，请勿重复运行！
+        echo EXIT:程序正在运行中，请勿重复运行！
+        exit
     fi
 }
-mutual_exclusion
 
-while [ true ]; do
-    check_connect
-    if [ "$CONNECT" = true ]; then
-        reflush_TIME
-        TMP=$(($TIME_CUR - $CONNECT_TIME))
-        if [ "${requires_heartBeat}" = true ]; then
-            if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
-                doHeartBeat
-            fi
+check_info() {
+    #echo 1:$1 2:$2 USERID: $USERID auto-auth:S #debug
+    if [ -n "$1" ]; then
+        USERID="$1"
+
+        if [ -n "$2" ]; then
+            PWD="$2"
+        else
+            echo PWD_ERR! EXIT!
+            exit
         fi
-    elif [ "$CONNECT" = false ]; then
-        check_SHOULD_STOP
-        if [ "$SHOULD_STOP" = true ]; then
-            break
-        elif [ "$SHOULD_STOP" = false ]; then
-            echo Reconnecting
-            start_auth
-        fi
+    else
+        echo USERID_ERR! EXIT!
+        exit
     fi
-    sleep $SLEEP_TIME
-done
+
+    mutual_exclusion
+}
+
+check_info $1 $2
