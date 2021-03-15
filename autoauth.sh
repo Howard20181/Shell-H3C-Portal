@@ -210,18 +210,6 @@ start_auth() {
     loop
 }
 
-mutual_exclusion() {
-    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
-    if [ ! -n "$PID" ]; then
-        echo start run
-        init
-        start_auth
-    else
-        echo EXIT:程序正在运行中，请勿重复运行！
-        exit
-    fi
-}
-
 check_info() {
     #echo 1:$1 2:$2 USERID: $USERID auto-auth:S #debug
     if [ -n "$1" ]; then
@@ -238,7 +226,8 @@ check_info() {
         exit
     fi
 
-    mutual_exclusion
+    init
+    start_auth
 }
 
 check_info $1 $2
