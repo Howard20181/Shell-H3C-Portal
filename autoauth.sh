@@ -169,7 +169,7 @@ start_auth() {
             if [ "$heartBeatCyc" -gt 0 ]; then #要求心跳
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
-                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2 - 1)
+                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 3)
                 echo "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 #doHeartBeat #debug
             else
