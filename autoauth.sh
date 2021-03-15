@@ -1,11 +1,19 @@
 #!/bin/sh
-if [ -n $1 ]; then
+if [ -n "$1" ]; then
     USERID="$1"
-elif [ -n $2 ]; then
-    PWD="$2"
+
+    if [ -n "$2" ]; then
+        PWD="$2"
+    else
+        echo PWD_ERR! EXIT!
+        exit
+    fi
 else
-    echo ERROR: USER NAME OR PASSWORD NOT FOUND!
+    echo USERID_ERR! EXIT!
+    exit
 fi
+
+echo USERID: $USERID #$PWD #debug
 
 byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
 byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
@@ -170,6 +178,7 @@ start_auth() {
                 #echo Error: "${v_errorInfo}"
                 echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
+                    echo EXIT!
                     exit
                 fi
 
@@ -194,6 +203,8 @@ mutual_exclusion() {
     PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
     if [ ! -n "$PID" ]; then
         start_auth
+    else
+        echo 程序正在运行中，请勿重复运行！
     fi
 }
 mutual_exclusion
