@@ -185,7 +185,15 @@ start_auth() {
         fi
     fi
 }
-start_auth
+
+mutual_exclusion() {
+    PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
+    if [ ! -n "$PID" ]; then
+        start_auth
+    fi
+}
+mutual_exclusion
+
 while [ true ]; do
     check_connect
     if [ "$CONNECT" = true ]; then
