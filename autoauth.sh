@@ -63,7 +63,7 @@ check_connect() {
     fi
 }
 doHeartBeat() {
-    logger -t autoauth -p user.info "Start do HeartBeat ${TIME}"
+    logger -t autoauth -p user.info "Start do HeartBeat"
     echo "Start do HeartBeat ${TIME}"
     userDevPort=$(get_json_value $v_json userDevPort)
     userDevPort_ENCODEURL=$(encodeURIComponent $userDevPort)
@@ -145,7 +145,7 @@ start_auth() {
             reflush_CONNECT_TIME
             portalLink=$(get_json_value "${JSON}" portalLink)
             v_jsonStr=${portalLink}
-            logger -t autoauth -p user.info "Login Success "${TIME}""
+            logger -t autoauth -p user.info "Login Success"
             echo "Login Success "${TIME}""
 
             if [ ! -n "${v_jsonStr}" ]; then #解码失败
@@ -191,7 +191,7 @@ start_auth() {
             if [ -n "${portServIncludeFailedCode}" ]; then
                 portServFailedReason=$(get_json_value "${portServFailedReason_json}" "${portServIncludeFailedCode}")
                 #echo Error: "${v_errorInfo}"
-                logger -t autoauth -p user.err "Info: "${portServIncludeFailedReason}": "${portServFailedReason}""
+                logger -t autoauth -p user.err "Info: ${portServIncludeFailedReason}: ${portServFailedReason}"
                 echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
                     logger -t autoauth -p user.err "EXIT!"
@@ -200,7 +200,7 @@ start_auth() {
                 fi
 
             elif [ -n "${portServErrorCode}" ]; then
-                logger -t autoauth -p user.err ""${v_errorInfo}""
+                logger -t autoauth -p user.err "${v_errorInfo}"
                 echo Error: "${v_errorInfo}"
                 SLEEP_TIME="1"
                 if [ "${portServErrorCode}" = 2 ]; then
