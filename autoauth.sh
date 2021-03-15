@@ -1,7 +1,11 @@
 #!/bin/sh
-
-USERID="190000000000"
-PWD="1234"
+if [ -n $1 ]; then
+    USERID="$1"
+elif [ -n $2 ]; then
+    PWD="$2"
+else
+    echo ERROR: USER NAME OR PASSWORD NOT FOUND!
+fi
 
 byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
 byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort

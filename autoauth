@@ -5,7 +5,7 @@ START=99
 start() {
     PID=$(ps | grep auto-auth:S | grep -v grep | awk '{print $1}')
     if [ ! -n "$PID" ]; then
-        /etc/autoauth.sh auto-auth:S &
+        /etc/autoauth.sh 190000000000 1234 auto-auth:S &
     fi
 }
 stop() {
