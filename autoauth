@@ -1,20 +1,19 @@
 #!/bin/sh /etc/rc.common
 
 START=99
-PNAME=auto-auth:S
-start() {
-    PID=$(ps | grep ${PNAME} | grep -v grep | awk '{print $1}')
-    if [ ! -n "$PID" ]; then
-        /etc/autoauth.sh 190000000000 1234 ${PNAME} &
-    else
-        echo The program is running, please do not run it repeatedly!
-    fi
-}
+PNAME="auto-auth:S"
+USERID=190000000000
+PWD=1234
 stop() {
     PID=$(ps | grep ${PNAME} | grep -v grep | awk '{print $1}')
     if [ -n "$PID" ]; then
-        kill -9 $PID
+        kill $PID
     fi
+}
+start() {
+    stop
+    logger -t autoauth -p user.info "HELLO!"
+    /etc/autoauth.sh ${USERID} ${PWD} ${PNAME} &
 }
 restart() {
     stop

@@ -25,12 +25,12 @@ encodeURIComponent() {
 }
 
 get_json_value() {
-    local json=$1
-    local key=$2
-    if [ -z "$3" ]; then
-        local num=1
+    local json="${1}"
+    local key="${2}"
+    if [ -z "${3}" ]; then
+        local num="1"
     else
-        local num=$3
+        local num="${3}"
     fi
     local value=$(echo "${json}" | awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'${key}'\042/){print $(i+1)}}}' | tr -d '"' | sed -n "${num}"p)
     echo "${value}"
@@ -183,13 +183,37 @@ start_auth() {
                     start_auth
 
                 else #未知错误
-                    logger -t autoauth -p user.err "Unknown error, login failed."
-                    echo "Unknown error, login failed."
+                    logger -t autoauth -p user.err "Unknown error, login failed. EXIT!"
+                    echo "Unknown error, login failed. EXIT!"
                     exit
                 fi
             fi
         fi
     fi
+    while [ true ]; do
+        check_connect
+        if [ "$CONNECT" = true ]; then
+            reflush_TIME
+            TMP=$(($TIME_CUR - $CONNECT_TIME))
+            if [ "${requires_heartBeat}" = true ]; then
+                if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
+                    doHeartBeat
+                fi
+            fi
+        elif [ "$CONNECT" = false ]; then
+            check_SHOULD_STOP
+            if [ "$SHOULD_STOP" = true ]; then
+                logger -t autoauth -p user.info "EXIT!"
+                break
+                exit
+            elif [ "$SHOULD_STOP" = false ]; then
+                logger -t autoauth -p user.notice "Reconnecting"
+                echo Reconnecting
+                start_auth
+            fi
+        fi
+        sleep $SLEEP_TIME
+    done
 }
 
 check_info() {
@@ -213,27 +237,3 @@ check_info() {
 }
 
 check_info $1 $2
-
-while [ true ]; do
-    check_connect
-    if [ "$CONNECT" = true ]; then
-        reflush_TIME
-        TMP=$(($TIME_CUR - $CONNECT_TIME))
-        if [ "${requires_heartBeat}" = true ]; then
-            if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
-                doHeartBeat
-            fi
-        fi
-    elif [ "$CONNECT" = false ]; then
-        check_SHOULD_STOP
-        if [ "$SHOULD_STOP" = true ]; then
-            logger -t autoauth -p user.info "EXIT!"
-            break
-        elif [ "$SHOULD_STOP" = false ]; then
-            logger -t autoauth -p user.notice "Reconnecting"
-            echo Reconnecting
-            start_auth
-        fi
-    fi
-    sleep $SLEEP_TIME
-done
