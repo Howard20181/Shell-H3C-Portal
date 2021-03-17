@@ -44,26 +44,16 @@ function get_json_value() {
     echo "${value}"
 }
 
-function reflush_TIME() {
-    TIME_CUR=$(date +%s)
-    TIME=$(date '+%Y-%m-%d %H:%M:%S')
-}
-
 function check_SHOULD_STOP() {
-    reflush_TIME
     TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:15:00')" +%s)
     TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 06:00:00')" +%s)
+    local TIME_CUR=$(date +%s)
     if [ "${portServIncludeFailedCode}" -ne "63027" ]; then
         SHOULD_STOP=false
         SLEEP_TIME="1"
-    elif [ $TIME_CUR -gt $TIME_STOP1 ] || [ $TIME_CUR -lt $TIME_STOP2 ]; then
+    elif [ "${TIME_CUR}" -gt "${TIME_STOP1}" ] || [ "${TIME_CUR}" -lt "${TIME_STOP2}" ]; then
         SHOULD_STOP=true
     fi
-}
-
-function reflush_CONNECT_TIME() {
-    CONNECT_TIME=$(date +%s)-1
-    reflush_TIME
 }
 
 function check_connect() {
@@ -76,6 +66,7 @@ function check_connect() {
 
 function doHeartBeat() {
     logger -t autoauth -p user.info "Start do HeartBeat"
+    local TIME=$(date '+%Y-%m-%d %H:%M:%S')
     echo "Start do HeartBeat ${TIME}"
     userDevPort=$(get_json_value $v_json userDevPort)
     userDevPort_ENCODEURL=$(encodeURIComponent $userDevPort)
@@ -93,7 +84,7 @@ function doHeartBeat() {
         -H 'Cookie: hello1='$USERID'; hello2=false; i_p_c_op=false; i_p_c_un='$USERID'' \
         --data-raw 'userip=&basip=&userStatus='$userStatus'&userDevPort='$userDevPort_ENCODEURL'&serialNo='$serialNo'&language='$v_Language'&t=hb' \
         --insecure)
-    reflush_CONNECT_TIME
+    CONNECT_TIME=$(date +%s)
     #echo doHeartBeat_INFO: $doHeartBeat_INFO #debug
 }
 
@@ -128,10 +119,11 @@ function start_auth() {
         v_errorNumber=$(get_json_value "${JSON}" errorNumber)
 
         if [ "${v_errorNumber}" = "1" ]; then #认证成功
-            reflush_CONNECT_TIME
+            CONNECT_TIME=$(date +%s)
             portalLink=$(get_json_value "${JSON}" portalLink)
             v_jsonStr=${portalLink}
             logger -t autoauth -p user.info "Login Success"
+            local TIME=$(date '+%Y-%m-%d %H:%M:%S')
             echo "Login Success "${TIME}""
 
             if [ ! -n "${v_jsonStr}" ]; then #解码失败
@@ -159,7 +151,7 @@ function start_auth() {
             if [ "$heartBeatCyc" -gt 0 ]; then #要求心跳
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
-                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 3)
+                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2 - 1)
                 logger -t autoauth -p user.info "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 echo "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 #doHeartBeat #debug
@@ -190,7 +182,7 @@ function start_auth() {
                 echo Error: "${v_errorInfo}"
                 SLEEP_TIME="1"
                 if [ "${portServErrorCode}" = 2 ]; then
-                    reflush_CONNECT_TIME
+                    CONNECT_TIME=$(date +%s)
                 elif [ "${portServErrorCode}" = 3 ]; then
                     start_auth
 
@@ -209,8 +201,8 @@ function loop() {
     while [ true ]; do
         check_connect
         if [ "$CONNECT" = true ]; then
-            reflush_TIME
-            TMP=$(($TIME_CUR - $CONNECT_TIME))
+            local TIME_CUR=$(date +%s)
+            local TMP=$(($TIME_CUR - $CONNECT_TIME))
             if [ "${requires_heartBeat}" = true ]; then
                 if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
                     doHeartBeat
