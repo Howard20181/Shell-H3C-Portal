@@ -48,11 +48,14 @@ function check_SHOULD_STOP() {
     TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:15:00')" +%s)
     TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 06:00:00')" +%s)
     local TIME_CUR=$(date +%s)
-    if [ "${portServIncludeFailedCode}" -ne "63027" ]; then
+    if [ "${portServIncludeFailedCode}" != "63027" ]; then
         SHOULD_STOP=false
         SLEEP_TIME="1"
     elif [ "${TIME_CUR}" -gt "${TIME_STOP1}" ] || [ "${TIME_CUR}" -lt "${TIME_STOP2}" ]; then
         SHOULD_STOP=true
+        logger -t autoauth -p user.info "EXIT!"
+        echo "EXIT!"
+        exit
     fi
 }
 
@@ -151,7 +154,7 @@ function start_auth() {
             if [ "$heartBeatCyc" -gt 0 ]; then #要求心跳
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
-                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2 - 1)
+                SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2)
                 logger -t autoauth -p user.info "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 echo "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 #doHeartBeat #debug
@@ -176,7 +179,7 @@ function start_auth() {
                     echo EXIT!
                     exit
                 fi
-
+                check_SHOULD_STOP
             elif [ -n "${portServErrorCode}" ]; then
                 logger -t autoauth -p user.err "${v_errorInfo}"
                 echo Error: "${v_errorInfo}"
@@ -204,16 +207,14 @@ function loop() {
             local TIME_CUR=$(date +%s)
             local TMP=$(($TIME_CUR - $CONNECT_TIME))
             if [ "${requires_heartBeat}" = true ]; then
-                if [ $TMP -gt "$heartBeatCyc_TRUE" ]; then
+                if [ "${TMP}" -ge "${heartBeatCyc_TRUE}" ]; then
                     doHeartBeat
                 fi
             fi
         elif [ "$CONNECT" = false ]; then
             check_SHOULD_STOP
             if [ "$SHOULD_STOP" = true ]; then
-                logger -t autoauth -p user.info "EXIT!"
                 break
-                exit
             elif [ "$SHOULD_STOP" = false ]; then
                 logger -t autoauth -p user.notice "Reconnecting"
                 echo Reconnecting
