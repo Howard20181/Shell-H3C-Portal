@@ -1,5 +1,6 @@
-#!/bin/sh
-init() {
+#!/bin/bash
+
+function init() {
     byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
     byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
 
@@ -12,9 +13,16 @@ init() {
     SLEEP_TIME="1"
 }
 
-alias decodeURIComponent="sed 's/%/\\\\x/g' | xargs -0 printf '%b'"
+function urldecode() {
+    if [ -n "${1}" ]; then
+        : "${*//+/ }"
+        echo -e "${_//%/\\x}"
+    else
+        echo "Usage: urldecode <string-to-urldecode>"
+    fi
+}
 
-encodeURIComponent() {
+function encodeURIComponent() {
     local data=$1
     if [ -n "$1" ]; then
         local data="$(echo $data | curl -Gso /dev/null -w %{url_effective} --data-urlencode @- "" | sed -E 's/..(.*).../\1/')"
@@ -24,7 +32,7 @@ encodeURIComponent() {
     echo "${data##/?}"
 }
 
-get_json_value() {
+function get_json_value() {
     local json="${1}"
     local key="${2}"
     if [ -z "${3}" ]; then
@@ -36,11 +44,12 @@ get_json_value() {
     echo "${value}"
 }
 
-reflush_TIME() {
+function reflush_TIME() {
     TIME_CUR=$(date +%s)
     TIME=$(date '+%Y-%m-%d %H:%M:%S')
 }
-check_SHOULD_STOP() {
+
+function check_SHOULD_STOP() {
     reflush_TIME
     TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:15:00')" +%s)
     TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 06:00:00')" +%s)
@@ -51,18 +60,21 @@ check_SHOULD_STOP() {
         SHOULD_STOP=true
     fi
 }
-reflush_CONNECT_TIME() {
+
+function reflush_CONNECT_TIME() {
     CONNECT_TIME=$(date +%s)
     reflush_TIME
 }
-check_connect() {
+
+function check_connect() {
     if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
         CONNECT=true
     else
         CONNECT=false
     fi
 }
-doHeartBeat() {
+
+function doHeartBeat() {
     logger -t autoauth -p user.info "Start do HeartBeat"
     echo "Start do HeartBeat ${TIME}"
     userDevPort=$(get_json_value $v_json userDevPort)
@@ -85,7 +97,7 @@ doHeartBeat() {
     #echo doHeartBeat_INFO: $doHeartBeat_INFO #debug
 }
 
-start_auth() {
+function start_auth() {
     logger -t autoauth -p user.info "Start auth"
     echo "Start auth"
     logger -t autoauth -p user.info "Send Login request"
@@ -111,7 +123,7 @@ start_auth() {
         logger -t autoauth -p user.info "Analyzing authentication results"
         echo "Analyzing authentication results"
         DATA_ENCODEURL=$(printf "%s" "${DATA}==" | base64 -d)
-        JSON=$(echo "${DATA_ENCODEURL}" | decodeURIComponent)
+        JSON=$(urldecode "${DATA_ENCODEURL}")
         #echo JSON: "${JSON}" #debug
         v_errorNumber=$(get_json_value "${JSON}" errorNumber)
 
@@ -129,7 +141,7 @@ start_auth() {
             fi
 
             portalLink_ENCODEURL_DEBASE64="$(printf "%s" "${v_jsonStr}" | base64 -d)"
-            v_json=$(echo $portalLink_ENCODEURL_DEBASE64 | decodeURIComponent)
+            v_json=$(urldecode "${portalLink_ENCODEURL_DEBASE64}")
             if [ ! -n "${v_json}" ]; then #解码失败
                 logger -t autoauth -p user.err "portalLink DecodeURL error"
                 echo "ERROR: portalLink DecodeURL error"
@@ -190,6 +202,10 @@ start_auth() {
             fi
         fi
     fi
+    loop
+}
+
+function loop() {
     while [ true ]; do
         check_connect
         if [ "$CONNECT" = true ]; then
@@ -216,7 +232,7 @@ start_auth() {
     done
 }
 
-check_info() {
+function check_info() {
     #echo 1:$1 2:$2 USERID: $USERID auto-auth:S #debug
     if [ -n "$1" ]; then
         USERID="$1"
