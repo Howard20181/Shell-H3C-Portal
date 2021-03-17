@@ -62,7 +62,7 @@ function check_SHOULD_STOP() {
 }
 
 function reflush_CONNECT_TIME() {
-    CONNECT_TIME=$(date +%s)
+    CONNECT_TIME=$(date +%s)-1
     reflush_TIME
 }
 
