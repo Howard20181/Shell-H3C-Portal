@@ -1,17 +1,34 @@
 #!/bin/bash
+BasePath=$(
+    cd $(dirname ${BASH_SOURCE})
+    pwd
+)
 
-function init() {
-    byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
-    byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
+CONF="${BasePath}"/user.conf
 
-    v_loginType="3"
-    v_is_selfLogin="0"
-    uamInitCustom="1"
-    uamInitLogo="H3C"
+if [ -f "${CONF}" ]; then
+    USERID=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $1}')
+    PWD=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $2}')
+else
+    echo "user.conf not found!"
+fi
 
-    portServFailedReason_json='{"63013":"用户已被加入黑名单","63015":"用户已失效","63018":"用户不存在或者用户没有申请该服务","63024":"端口绑定检查失败","63025":"MAC地址绑定检查失败","63026":"静态IP地址绑定检查失败","63027":"接入时段限制","63031":"用户密码错误，该用户已经被加入黑名单","63032":"密码错误，密码连续错误次数超过阈值将会加入黑名单","63634":"当前场景下绑定终端数量达到限制","63048":"设备IP绑定检查失败","63073":"用户在对应的场景下不允许接入","63100":"无效认证客户端版本"}'
-    SLEEP_TIME="1"
-}
+if [ "$USERID" = "" ] || [ "$PWD" = "" ]; then
+    logger -t autoauth -p user.err "PWD or USERID NULL! EXIT!"
+    echo USERID or PWD NULL! EXIT!
+    exit
+fi
+
+byodserverip="10.0.15.101" #imc_portal_function_readByodServerAddress
+byodserverhttpport="8080"  #imc_portal_function_readByodServerHttpPort
+
+v_loginType="3"
+v_is_selfLogin="0"
+uamInitCustom="1"
+uamInitLogo="H3C"
+
+portServFailedReason_json='{"63013":"用户已被加入黑名单","63015":"用户已失效","63018":"用户不存在或者用户没有申请该服务","63024":"端口绑定检查失败","63025":"MAC地址绑定检查失败","63026":"静态IP地址绑定检查失败","63027":"接入时段限制","63031":"用户密码错误，该用户已经被加入黑名单","63032":"密码错误，密码连续错误次数超过阈值将会加入黑名单","63634":"当前场景下绑定终端数量达到限制","63048":"设备IP绑定检查失败","63073":"用户在对应的场景下不允许接入","63100":"无效认证客户端版本"}'
+SLEEP_TIME="1"
 
 function urldecode() {
     if [ -n "${1}" ]; then
@@ -33,6 +50,7 @@ function encodeURIComponent() {
 }
 
 function get_json_value() {
+    #This function has many errors and its output is unreliable
     local json="${1}"
     local key="${2}"
     if [ -z "${3}" ]; then
@@ -51,7 +69,7 @@ function check_SHOULD_STOP() {
     if [ "${portServIncludeFailedCode}" != "63027" ]; then
         SHOULD_STOP=false
         SLEEP_TIME="1"
-    elif [ "${TIME_CUR}" -gt "${TIME_STOP1}" ] || [ "${TIME_CUR}" -lt "${TIME_STOP2}" ]; then
+    elif [ ${TIME_CUR} -gt ${TIME_STOP1} ] || [ ${TIME_CUR} -lt ${TIME_STOP2} ]; then
         SHOULD_STOP=true
         logger -t autoauth -p user.info "EXIT!"
         echo "EXIT!"
@@ -120,7 +138,7 @@ function start_auth() {
         JSON=$(urldecode "${DATA_ENCODEURL}")
         #echo JSON: "${JSON}" #debug
         v_errorNumber=$(get_json_value "${JSON}" errorNumber)
-
+        #echo v_errorNumber=$v_errorNumber     #debug
         if [ "${v_errorNumber}" = "1" ]; then #认证成功
             CONNECT_TIME=$(date +%s)
             portalLink=$(get_json_value "${JSON}" portalLink)
@@ -151,7 +169,7 @@ function start_auth() {
             fi
 
             heartBeatCyc=$(get_json_value $v_json heartBeatCyc)
-            if [ "$heartBeatCyc" -gt 0 ]; then #要求心跳
+            if [ $heartBeatCyc -gt 0 ]; then #要求心跳
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
                 SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2)
@@ -171,7 +189,6 @@ function start_auth() {
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
                 portServFailedReason=$(get_json_value "${portServFailedReason_json}" "${portServIncludeFailedCode}")
-                #echo Error: "${v_errorInfo}"
                 logger -t autoauth -p user.err "Info: ${portServIncludeFailedReason}: ${portServFailedReason}"
                 echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
@@ -195,54 +212,40 @@ function start_auth() {
                     exit
                 fi
             fi
-        fi
-    fi
-    loop
-}
-
-function loop() {
-    while [ true ]; do
-        check_connect
-        if [ "$CONNECT" = true ]; then
-            local TIME_CUR=$(date +%s)
-            local TMP=$(($TIME_CUR - $CONNECT_TIME))
-            if [ "${requires_heartBeat}" = true ]; then
-                if [ "${TMP}" -ge "${heartBeatCyc_TRUE}" ]; then
-                    doHeartBeat
-                fi
-            fi
-        elif [ "$CONNECT" = false ]; then
-            check_SHOULD_STOP
-            if [ "$SHOULD_STOP" = true ]; then
-                break
-            elif [ "$SHOULD_STOP" = false ]; then
-                logger -t autoauth -p user.notice "Reconnecting"
-                echo Reconnecting
-                start_auth
+            if [ "${v_errorNumber}" = "-1" ]; then
+                local e_c=$(get_json_value "${JSON}" e_c)
+                local e_d=$(get_json_value "${JSON}" e_d)
+                local portal_error=$(get_json_value "${JSON}" "${e_c}")
+                local errorDescription=$(get_json_value "${JSON}" "${e_d}")
+                #echo e_c=$e_c e_d=$e_d portal_error=$portal_error errorDescription=$errorDescription #get_json_value unreliable
+                logger -t autoauth -p user.err "portal error EXIT!"
+                echo portal error EXIT!
+                exit
             fi
         fi
-        sleep $SLEEP_TIME
-    done
-}
-
-function check_info() {
-    #echo 1:$1 2:$2 USERID: $USERID auto-auth:S #debug
-    if [ -n "$1" ]; then
-        USERID="$1"
-        if [ -n "$2" ]; then
-            PWD="$2"
-        else
-            logger -t autoauth -p user.err "PWD_ERR! EXIT!"
-            echo PWD_ERR! EXIT!
-            exit
-        fi
-    else
-        logger -t autoauth -p user.err "USERID_ERR! EXIT!"
-        echo USERID_ERR! EXIT!
-        exit
     fi
-    init
-    start_auth
 }
+start_auth
 
-check_info $1 $2
+while [ true ]; do
+    check_connect
+    if [ "$CONNECT" = true ]; then
+        TIME_CUR=$(date +%s)
+        TMP=$(($TIME_CUR - $CONNECT_TIME))
+        if [ "${requires_heartBeat}" = true ]; then
+            if [ ${TMP} -ge ${heartBeatCyc_TRUE} ]; then
+                doHeartBeat
+            fi
+        fi
+    elif [ "$CONNECT" = false ]; then
+        check_SHOULD_STOP
+        if [ "$SHOULD_STOP" = true ]; then
+            break
+        elif [ "$SHOULD_STOP" = false ]; then
+            logger -t autoauth -p user.notice "Reconnecting"
+            echo Reconnecting
+            start_auth
+        fi
+    fi
+    sleep $SLEEP_TIME
+done

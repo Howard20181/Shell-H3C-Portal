@@ -1,19 +1,14 @@
 #!/bin/bash /etc/rc.common
 
-START=99
-PNAME="auto-auth:S"
-USERID=190000000000
-PWD=1234
+START=60
+PNAME="autoauth.sh"
 stop() {
-    PID=$(ps | grep ${PNAME} | grep -v grep | awk '{print $1}')
-    if [ -n "$PID" ]; then
-        kill $PID
-    fi
+    killall -q ${PNAME}
 }
 start() {
     stop
-    logger -t autoauth -p user.info "HELLO!"
-    /etc/autoauth.sh ${USERID} ${PWD} ${PNAME} &
+    logger -t "autoauth" -p user.info "HELLO!"
+    /etc/${PNAME} &
 }
 restart() {
     stop
