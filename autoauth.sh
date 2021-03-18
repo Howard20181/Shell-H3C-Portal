@@ -5,17 +5,18 @@ BasePath=$(
 )
 
 CONF="${BasePath}"/user.conf
-
+BaseName=$(basename $BASH_SOURCE)
 if [ -f "${CONF}" ]; then
     USERID=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $1}')
     PWD=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $2}')
+    if [ "$USERID" = "" ] || [ "$PWD" = "" ]; then
+        logger -t "${BaseName}" -p user.err "PWD or USERID NULL! EXIT!"
+        echo USERID or PWD NULL! EXIT!
+        exit
+    fi
 else
-    echo "user.conf not found!"
-fi
-
-if [ "$USERID" = "" ] || [ "$PWD" = "" ]; then
-    logger -t autoauth -p user.err "PWD or USERID NULL! EXIT!"
-    echo USERID or PWD NULL! EXIT!
+    logger -t "${BaseName}" -p user.err "user.conf not found! EXIT!"
+    echo "user.conf not found! EXIT!"
     exit
 fi
 
@@ -71,7 +72,7 @@ function check_SHOULD_STOP() {
         SLEEP_TIME="1"
     elif [ ${TIME_CUR} -gt ${TIME_STOP1} ] || [ ${TIME_CUR} -lt ${TIME_STOP2} ]; then
         SHOULD_STOP=true
-        logger -t autoauth -p user.info "EXIT!"
+        logger -t "${BaseName}" -p user.info "EXIT!"
         echo "EXIT!"
         exit
     fi
@@ -86,7 +87,7 @@ function check_connect() {
 }
 
 function doHeartBeat() {
-    logger -t autoauth -p user.info "Start do HeartBeat"
+    logger -t "${BaseName}" -p user.info "Start do HeartBeat"
     local TIME=$(date '+%Y-%m-%d %H:%M:%S')
     echo "Start do HeartBeat ${TIME}"
     userDevPort=$(get_json_value $v_json userDevPort)
@@ -110,9 +111,9 @@ function doHeartBeat() {
 }
 
 function start_auth() {
-    logger -t autoauth -p user.info "Start auth"
+    logger -t "${BaseName}" -p user.info "Start auth"
     echo "Start auth"
-    logger -t autoauth -p user.info "Send Login request"
+    logger -t "${BaseName}" -p user.info "Send Login request"
     echo "Send Login request"
     PWD_BASE64="$(printf $PWD | base64)"
     PWD_BASE64_ENCODEURL=$(encodeURIComponent $PWD_BASE64)
@@ -129,10 +130,10 @@ function start_auth() {
         --data-raw 'userName='$USERID'&userPwd='$PWD_BASE64_ENCODEURL'&language=Chinese&customPageId='$uamInitLogo'&pwdMode=0&portalProxyIP='$byodserverip'&portalProxyPort=50200&dcPwdNeedEncrypt=1&assignIpType=0&appRootUrl='$appRootUrl_ENCODEURL'' \
         --insecure)
     if [ ! -n "${DATA}" ]; then #未收到回应，网络错误
-        logger -t autoauth -p user.err "Network error"
+        logger -t "${BaseName}" -p user.err "Network error"
         echo "Network error"
     else #收到回应，可以连接上认证服务器
-        logger -t autoauth -p user.info "Analyzing authentication results"
+        logger -t "${BaseName}" -p user.info "Analyzing authentication results"
         echo "Analyzing authentication results"
         DATA_ENCODEURL=$(printf "%s" "${DATA}==" | base64 -d)
         JSON=$(urldecode "${DATA_ENCODEURL}")
@@ -143,12 +144,12 @@ function start_auth() {
             CONNECT_TIME=$(date +%s)
             portalLink=$(get_json_value "${JSON}" portalLink)
             v_jsonStr=${portalLink}
-            logger -t autoauth -p user.info "Login Success"
+            logger -t "${BaseName}" -p user.info "Login Success"
             local TIME=$(date '+%Y-%m-%d %H:%M:%S')
             echo "Login Success "${TIME}""
 
             if [ ! -n "${v_jsonStr}" ]; then #解码失败
-                logger -t autoauth -p user.err "portalLink DEBASE64 error"
+                logger -t "${BaseName}" -p user.err "portalLink DEBASE64 error"
                 echo "ERROR: portalLink DEBASE64 error"
                 start_auth
             fi
@@ -156,14 +157,14 @@ function start_auth() {
             portalLink_ENCODEURL_DEBASE64="$(printf "%s" "${v_jsonStr}" | base64 -d)"
             v_json=$(urldecode "${portalLink_ENCODEURL_DEBASE64}")
             if [ ! -n "${v_json}" ]; then #解码失败
-                logger -t autoauth -p user.err "portalLink DecodeURL error"
+                logger -t "${BaseName}" -p user.err "portalLink DecodeURL error"
                 echo "ERROR: portalLink DecodeURL error"
                 start_auth
             fi
             #echo v_json: "${v_json}" #debug
             ifNeedModifyPwd=$(get_json_value $v_json ifNeedModifyPwd)
             if [ "${ifNeedModifyPwd}" = true ]; then #要求修改密码
-                logger -t autoauth -p user.warn "Need Modify Pwd"
+                logger -t "${BaseName}" -p user.warn "Need Modify Pwd"
                 echo Need Modify Pwd
 
             fi
@@ -173,7 +174,7 @@ function start_auth() {
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
                 SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2)
-                logger -t autoauth -p user.info "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
+                logger -t "${BaseName}" -p user.info "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 echo "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
                 #doHeartBeat #debug
             else
@@ -189,16 +190,16 @@ function start_auth() {
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
                 portServFailedReason=$(get_json_value "${portServFailedReason_json}" "${portServIncludeFailedCode}")
-                logger -t autoauth -p user.err "Info: ${portServIncludeFailedReason}: ${portServFailedReason}"
+                logger -t "${BaseName}" -p user.err "Info: ${portServIncludeFailedReason}: ${portServFailedReason}"
                 echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
-                    logger -t autoauth -p user.err "EXIT!"
+                    logger -t "${BaseName}" -p user.err "EXIT!"
                     echo EXIT!
                     exit
                 fi
                 check_SHOULD_STOP
             elif [ -n "${portServErrorCode}" ]; then
-                logger -t autoauth -p user.err "${v_errorInfo}"
+                logger -t "${BaseName}" -p user.err "${v_errorInfo}"
                 echo Error: "${v_errorInfo}"
                 SLEEP_TIME="1"
                 if [ "${portServErrorCode}" = 2 ]; then
@@ -207,7 +208,7 @@ function start_auth() {
                     start_auth
 
                 else #未知错误
-                    logger -t autoauth -p user.err "Unknown error, login failed. EXIT!"
+                    logger -t "${BaseName}" -p user.err "Unknown error, login failed. EXIT!"
                     echo "Unknown error, login failed. EXIT!"
                     exit
                 fi
@@ -218,7 +219,7 @@ function start_auth() {
                 local portal_error=$(get_json_value "${JSON}" "${e_c}")
                 local errorDescription=$(get_json_value "${JSON}" "${e_d}")
                 #echo e_c=$e_c e_d=$e_d portal_error=$portal_error errorDescription=$errorDescription #get_json_value unreliable
-                logger -t autoauth -p user.err "portal error EXIT!"
+                logger -t "${BaseName}" -p user.err "portal error EXIT!"
                 echo portal error EXIT!
                 exit
             fi
@@ -242,7 +243,7 @@ while [ true ]; do
         if [ "$SHOULD_STOP" = true ]; then
             break
         elif [ "$SHOULD_STOP" = false ]; then
-            logger -t autoauth -p user.notice "Reconnecting"
+            logger -t "${BaseName}" -p user.notice "Reconnecting"
             echo Reconnecting
             start_auth
         fi
