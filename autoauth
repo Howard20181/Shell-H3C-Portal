@@ -6,9 +6,13 @@ stop() {
     killall -q ${PNAME}
 }
 start() {
-    stop
-    logger -t "autoauth" -p user.info "HELLO!"
-    /etc/${PNAME} &
+    if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
+        logger -t "autoauth" -p user.info "The internet connection works!"
+    else
+        stop
+        logger -t "autoauth" -p user.info "HELLO!"
+        /etc/${PNAME} &
+    fi
 }
 restart() {
     stop
