@@ -6,15 +6,18 @@ stop() {
     killall -q ${PNAME}
 }
 start() {
-    if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
-        logger -t "autoauth" -p user.info "The internet connection works!"
-    else
-        stop
-        logger -t "autoauth" -p user.info "HELLO!"
-        /etc/${PNAME} &
-    fi
+    stop
+    logger -t "autoauth" -p user.info "HELLO!"
+    /etc/${PNAME} &
 }
 restart() {
-    stop
-    start
+    local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:15:00')" +%s)
+    local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
+    local TIME_CUR=$(date +%s)
+    if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
+        logger -t "autoauth" -p user.info "The internet connection works!"
+    elif [ ${TIME_CUR} -lt ${TIME_STOP1} ] || [ ${TIME_CUR} -gt ${TIME_STOP2} ]; then
+        stop
+        start
+    fi
 }
