@@ -184,7 +184,6 @@ function start_auth() {
             local v_errorInfo=$(get_json_value "${JSON}" portServErrorCodeDesc)
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
-                
                 logger -t "${BaseName}" -p user.err "${portServIncludeFailedReason}"
                 echo Info: "${portServIncludeFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
@@ -214,8 +213,8 @@ function start_auth() {
                 local portal_error=$(get_json_value "${JSON}" "${e_c}")
                 local errorDescription=$(get_json_value "${JSON}" "${e_d}")
                 #echo e_c=$e_c e_d=$e_d portal_error=$portal_error errorDescription=$errorDescription #get_json_value unreliable
-                logger -t "${BaseName}" -p user.err "portal error EXIT!"
-                echo portal error EXIT!
+                logger -t "${BaseName}" -p user.err "$portal_error $errorDescription EXIT!"
+                echo $portal_error $errorDescription EXIT!
                 exit
             fi
         fi
