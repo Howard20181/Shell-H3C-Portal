@@ -28,7 +28,6 @@ v_is_selfLogin="0"
 uamInitCustom="1"
 uamInitLogo="H3C"
 
-portServFailedReason_json='{"63013":"用户已被加入黑名单","63015":"用户已失效","63018":"用户不存在或者用户没有申请该服务","63024":"端口绑定检查失败","63025":"MAC地址绑定检查失败","63026":"静态IP地址绑定检查失败","63027":"接入时段限制","63031":"用户密码错误，该用户已经被加入黑名单","63032":"密码错误，密码连续错误次数超过阈值将会加入黑名单","63634":"当前场景下绑定终端数量达到限制","63048":"设备IP绑定检查失败","63073":"用户在对应的场景下不允许接入","63100":"无效认证客户端版本"}'
 SLEEP_TIME="1"
 
 function urldecode() {
@@ -51,15 +50,9 @@ function encodeURIComponent() {
 }
 
 function get_json_value() {
-    #This function has many errors and its output is unreliable
     local json="${1}"
     local key="${2}"
-    if [ -z "${3}" ]; then
-        local num="1"
-    else
-        local num="${3}"
-    fi
-    local value=$(echo "${json}" | awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'${key}'\042/){print $(i+1)}}}' | tr -d '"' | sed -n "${num}"p)
+    local value=$(jsonfilter -e "$.$key" <<<$json)
     echo "${value}"
 }
 
@@ -191,9 +184,9 @@ function start_auth() {
             local v_errorInfo=$(get_json_value "${JSON}" portServErrorCodeDesc)
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
-                local portServFailedReason=$(get_json_value "${portServFailedReason_json}" "${portServIncludeFailedCode}")
-                logger -t "${BaseName}" -p user.err "${portServIncludeFailedReason}: ${portServFailedReason}"
-                echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
+                
+                logger -t "${BaseName}" -p user.err "${portServIncludeFailedReason}"
+                echo Info: "${portServIncludeFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
                     logger -t "${BaseName}" -p user.err "EXIT!"
                     echo EXIT!
