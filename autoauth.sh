@@ -9,7 +9,7 @@ BaseName=$(basename $BASH_SOURCE)
 if [ -f "${CONF}" ]; then
     USERID=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $1}')
     PWD=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $2}')
-    if [ "$USERID" = "" ] || [ "$PWD" = "" ]; then
+    if [ ! -n "$USERID" ] || [ ! -n "$PWD" ]; then
         logger -t "${BaseName}" -p user.err "PWD or USERID NULL! EXIT!"
         echo USERID or PWD NULL! EXIT!
         exit
@@ -175,8 +175,8 @@ function start_auth() {
             else
                 requires_heartBeat=false
             fi
-            portServIncludeFailedCode=""
-            portServErrorCode=""
+            unset portServIncludeFailedCode
+            unset portServErrorCode
 
         else #认证失败
             portServIncludeFailedCode=$(get_json_value "${JSON}" portServIncludeFailedCode)
@@ -202,8 +202,8 @@ function start_auth() {
                     start_auth
 
                 else #未知错误
-                    logger -t "${BaseName}" -p user.err "Unknown error, login failed. EXIT!"
-                    echo "Unknown error, login failed. EXIT!"
+                    logger -t "${BaseName}" -p user.err "Unknown error $portServErrorCode, login failed. EXIT!"
+                    echo "Unknown error $portServErrorCode, login failed. EXIT!"
                     exit
                 fi
             fi
