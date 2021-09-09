@@ -29,6 +29,7 @@ uamInitCustom="1"
 uamInitLogo="H3C"
 
 SLEEP_TIME="1"
+RECONN_COUNT="0"
 
 function urldecode() {
     if [ -n "${1}" ]; then
@@ -58,23 +59,28 @@ function get_json_value() {
 
 function check_SHOULD_STOP() {
     SHOULD_STOP=false
-    SLEEP_TIME="1"
     local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:15:00')" +%s)
     local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
     local TIME_CUR=$(date +%s)
     if [ "${portServIncludeFailedCode}" = "63027" ]; then
         if [ ${TIME_CUR} -gt ${TIME_STOP1} ] || [ ${TIME_CUR} -lt ${TIME_STOP2} ]; then
             SHOULD_STOP=true
-            logger -t "${BaseName}" -p user.info "EXIT!"
-            echo "EXIT!"
-            exit
         fi
+    fi
+    if [ "${RECONN_COUNT}" -gt "10" ]; then
+        SHOULD_STOP=true
+    fi
+    if [ "$SHOULD_STOP" = true ]; then
+        logger -t "${BaseName}" -p user.info "EXIT!"
+        echo "EXIT!"
+        exit
     fi
 }
 
 function check_connect() {
     if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
         CONNECT=true
+        RECONN_COUNT="0"
     else
         CONNECT=false
     fi
@@ -174,6 +180,7 @@ function start_auth() {
                 #doHeartBeat #debug
             else
                 requires_heartBeat=false
+                SLEEP_TIME="60"
             fi
             unset portServIncludeFailedCode
             unset portServErrorCode
@@ -237,8 +244,10 @@ while [ true ]; do
         if [ "$SHOULD_STOP" = true ]; then
             break
         elif [ "$SHOULD_STOP" = false ]; then
+            SLEEP_TIME="60"
             logger -t "${BaseName}" -p user.notice "Reconnecting"
-            echo Reconnecting
+            let RECONN_COUNT++
+            echo Reconnecting: $RECONN_COUNT TIMES
             start_auth
         fi
     fi
