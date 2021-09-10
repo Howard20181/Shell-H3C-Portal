@@ -253,9 +253,9 @@ while [ true ]; do
             break
         elif [ "$SHOULD_STOP" = false ]; then
             SLEEP_TIME="60"
-            logger -t "${BaseName}" -p user.notice "Reconnecting: $RECONN_COUNT TIMES"
+            logger -t "${BaseName}" -p user.notice "Reconnecting: $RECONN_COUNT TIME"
             let RECONN_COUNT++
-            echo Reconnecting: $RECONN_COUNT TIMES
+            echo Reconnecting: $RECONN_COUNT TIME
             start_auth
         fi
     fi
