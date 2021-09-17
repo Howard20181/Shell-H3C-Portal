@@ -132,7 +132,11 @@ function start_auth() {
     if [ ! -n "${DATA}" ]; then #未收到回应，网络错误
         logger -t "${BaseName}" -p user.err "Network error"
         echo "Network error"
-        start_auth
+        SLEEP_TIME="10"
+        logger -t "${BaseName}" -p user.notice "Reconnecting: $RECONN_COUNT TIME"
+        let RECONN_COUNT++
+        echo Reconnecting: $RECONN_COUNT TIME
+        [ "${RECONN_COUNT}" -le "10" ] && start_auth
     else #收到回应，可以连接上认证服务器
         logger -t "${BaseName}" -p user.info "Analyzing authentication results"
         echo "Analyzing authentication results"
