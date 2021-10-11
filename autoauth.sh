@@ -3,20 +3,41 @@ BasePath=$(
     cd $(dirname ${BASH_SOURCE})
     pwd
 )
-
+#DEBUG=1
 CONF="${BasePath}"/user.conf
 BaseName=$(basename $BASH_SOURCE)
+function LOG() {
+    if [ -n "${2}" ]; then
+        if [ "${1}" == "E" ]; then
+            logger -t "${BaseName}" -p user.err "${2}"
+            echo "Error : ${2}"
+        elif [ "${1}" == "I" ]; then
+            logger -t "${BaseName}" -p user.info "${2}"
+            echo "Info  : ${2}"
+        elif [ "${1}" == "N" ]; then
+            logger -t "${BaseName}" -p user.notice "${2}"
+            echo "Notice: ${2}"
+        elif [ "${1}" == "W" ]; then
+            logger -t "${BaseName}" -p user.warn "${2}"
+            echo "Warn  : ${2}"
+        elif [ -n "${DEBUG}" ] && [ "${1}" == "D" ]; then
+            logger -t "${BaseName}" -p user.debug "${2}"
+            echo "Debug : ${2}"
+        fi
+    else
+        logger -t "${BaseName}" -p user.info "${1}"
+        echo "Info: ${1}"
+    fi
+}
 if [ -f "${CONF}" ]; then
     USERID=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $1}')
     PWD=$(cat "${BasePath}"/user.conf | grep -v grep | awk '{print $2}')
-    if [ "$USERID" = "" ] || [ "$PWD" = "" ]; then
-        logger -t "${BaseName}" -p user.err "PWD or USERID NULL! EXIT!"
-        echo USERID or PWD NULL! EXIT!
+    if [ ! -n "$USERID" ] || [ ! -n "$PWD" ]; then
+        LOG E "PWD or USERID NULL! EXIT!"
         exit
     fi
 else
-    logger -t "${BaseName}" -p user.err "user.conf not found! EXIT!"
-    echo "user.conf not found! EXIT!"
+    LOG E "user.conf not found! EXIT!"
     exit
 fi
 
@@ -74,12 +95,8 @@ function check_SHOULD_STOP() {
             SHOULD_STOP=true
         fi
     fi
-    if [ "${RECONN_COUNT}" -gt "10" ]; then
-        SHOULD_STOP=true
-    fi
     if [ "$SHOULD_STOP" = true ]; then
-        logger -t "${BaseName}" -p user.info "EXIT!"
-        echo "EXIT!"
+        LOG I "EXIT!"
         exit
     fi
 }
@@ -94,9 +111,8 @@ function check_connect() {
 }
 
 function doHeartBeat() {
-    logger -t "${BaseName}" -p user.info "Start do HeartBeat"
     local TIME=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "Start do HeartBeat ${TIME}"
+    LOG I "Start do HeartBeat ${TIME}"
     local userDevPort=$(get_json_value $v_json userDevPort)
     local userDevPort_ENCODEURL=$(encodeURIComponent $userDevPort)
     local userStatus=$(get_json_value $v_json userStatus)
@@ -114,14 +130,19 @@ function doHeartBeat() {
         --data-raw 'userip=&basip=&userStatus='$userStatus'&userDevPort='$userDevPort_ENCODEURL'&serialNo='$serialNo'&language='$v_Language'&t=hb' \
         --insecure)
     CONNECT_TIME=$(date +%s)
-    #echo doHeartBeat_INFO: $doHeartBeat_INFO #debug
+    LOG D "doHeartBeat_INFO: $doHeartBeat_INFO"
 }
-
+function restart_auth() {
+    let RECONN_COUNT++
+    SLEEP_TIME=$(expr $SLEEP_TIME \* $RECONN_COUNT)
+    LOG N "Wait ${SLEEP_TIME}s"
+    sleep $SLEEP_TIME
+    LOG N "Reconnecting: $RECONN_COUNT TIME"
+    start_auth
+}
 function start_auth() {
-    logger -t "${BaseName}" -p user.info "Start auth"
-    echo "Start auth"
-    logger -t "${BaseName}" -p user.info "Send Login request"
-    echo "Send Login request"
+    LOG I "Start auth"
+    LOG I "Send Login request"
     local PWD_BASE64="$(printf $PWD | base64)"
     local PWD_BASE64_ENCODEURL=$(encodeURIComponent $PWD_BASE64)
     appRootUrl="http://$byodserverip:$byodserverhttpport/portal/"
@@ -137,48 +158,36 @@ function start_auth() {
         --data-raw 'userName='$USERID'&userPwd='$PWD_BASE64_ENCODEURL'&language=Chinese&customPageId='$uamInitLogo'&pwdMode=0&portalProxyIP='$byodserverip'&portalProxyPort=50200&dcPwdNeedEncrypt=1&assignIpType=0&appRootUrl='$appRootUrl_ENCODEURL'' \
         --insecure)
     if [ ! -n "${DATA}" ]; then #未收到回应，网络错误
-        logger -t "${BaseName}" -p user.err "Network error"
-        echo "Network error"
-        SLEEP_TIME="10"
-        logger -t "${BaseName}" -p user.notice "Reconnecting: $RECONN_COUNT TIME"
-        let RECONN_COUNT++
-        echo Reconnecting: $RECONN_COUNT TIME
-        [ "${RECONN_COUNT}" -le "10" ] && start_auth
+        LOG E "Network error"
+        restart_auth
     else #收到回应，可以连接上认证服务器
-        logger -t "${BaseName}" -p user.info "Analyzing authentication results"
-        echo "Analyzing authentication results"
+        LOG I "Analyzing authentication results"
         local DATA_ENCODEURL=$(printf "%s" "${DATA}==" | base64 -d)
         local JSON=$(urldecode "${DATA_ENCODEURL}")
-        #echo JSON: "${JSON}" #debug
+        LOG D "JSON: ${JSON}"
         local v_errorNumber=$(get_json_value "${JSON}" errorNumber)
-        #echo v_errorNumber=$v_errorNumber     #debug
+        LOG D "v_errorNumber=$v_errorNumber"
         if [ "${v_errorNumber}" = "1" ]; then #认证成功
             CONNECT_TIME=$(date +%s)
             portalLink=$(get_json_value "${JSON}" portalLink)
             local v_jsonStr=${portalLink}
-            logger -t "${BaseName}" -p user.info "Login Success"
             local TIME=$(date '+%Y-%m-%d %H:%M:%S')
-            echo "Login Success "${TIME}""
-
+            LOG I "Login Success ${TIME}"
             if [ ! -n "${v_jsonStr}" ]; then #解码失败
-                logger -t "${BaseName}" -p user.err "portalLink DEBASE64 error"
-                echo "ERROR: portalLink DEBASE64 error"
-                start_auth
+                LOG E "portalLink DEBASE64 error"
+                restart_auth
             fi
 
             local portalLink_ENCODEURL_DEBASE64="$(printf "%s" "${v_jsonStr}" | base64 -d)"
             v_json=$(urldecode "${portalLink_ENCODEURL_DEBASE64}")
             if [ ! -n "${v_json}" ]; then #解码失败
-                logger -t "${BaseName}" -p user.err "portalLink DecodeURL error"
-                echo "ERROR: portalLink DecodeURL error"
-                start_auth
+                LOG E "portalLink DecodeURL error"
+                restart_auth
             fi
-            #echo v_json: "${v_json}" #debug
+            LOG D "v_json: ${v_json}"
             local ifNeedModifyPwd=$(get_json_value $v_json ifNeedModifyPwd)
             if [ "${ifNeedModifyPwd}" = true ]; then #要求修改密码
-                logger -t "${BaseName}" -p user.warn "Need Modify Pwd"
-                echo Need Modify Pwd
-
+                LOG W "Need Modify Pwd"
             fi
 
             local heartBeatCyc=$(get_json_value $v_json heartBeatCyc)
@@ -186,9 +195,8 @@ function start_auth() {
                 requires_heartBeat=true
                 heartBeatCyc_TRUE=$(expr $heartBeatCyc / 1000)
                 SLEEP_TIME=$(expr $heartBeatCyc_TRUE / 2)
-                logger -t "${BaseName}" -p user.info "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
-                echo "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
-                #doHeartBeat #debug
+                LOG I "The connection requires a heartbeat every ${heartBeatCyc_TRUE} seconds. Please do not terminate the script."
+                [ -n "${DEBUG}" ] && doHeartBeat
             else
                 requires_heartBeat=false
                 SLEEP_TIME="60"
@@ -202,27 +210,22 @@ function start_auth() {
             local v_errorInfo=$(get_json_value "${JSON}" portServErrorCodeDesc)
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
-                local portServFailedReason=$(get_json_value "${portServFailedReason_json}" "${portServIncludeFailedCode}")
-                logger -t "${BaseName}" -p user.err "${portServIncludeFailedReason}: ${portServFailedReason}"
-                echo Info: "${portServIncludeFailedReason}": "${portServFailedReason}"
+                LOG E "${portServIncludeFailedReason}"
                 if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
-                    logger -t "${BaseName}" -p user.err "EXIT!"
-                    echo EXIT!
+                    LOG E "EXIT!"
                     exit
                 fi
                 check_SHOULD_STOP
             elif [ -n "${portServErrorCode}" ]; then
-                logger -t "${BaseName}" -p user.err "${v_errorInfo}"
-                echo Error: "${v_errorInfo}"
+                LOG E "${v_errorInfo}"
                 SLEEP_TIME="1"
                 if [ "${portServErrorCode}" = 2 ]; then
                     CONNECT_TIME=$(date +%s)
                 elif [ "${portServErrorCode}" = 3 ]; then
-                    start_auth
+                    restart_auth
 
                 else #未知错误
-                    logger -t "${BaseName}" -p user.err "Unknown error, login failed. EXIT!"
-                    echo "Unknown error, login failed. EXIT!"
+                    LOG E "Unknown error $portServErrorCode, login failed. EXIT!"
                     exit
                 fi
             fi
@@ -231,9 +234,8 @@ function start_auth() {
                 local e_d=$(get_json_value "${JSON}" e_d)
                 local portal_error=$(get_json_value "${JSON}" "${e_c}")
                 local errorDescription=$(get_json_value "${JSON}" "${e_d}")
-                #echo e_c=$e_c e_d=$e_d portal_error=$portal_error errorDescription=$errorDescription #get_json_value unreliable
-                logger -t "${BaseName}" -p user.err "portal error EXIT!"
-                echo portal error EXIT!
+                LOG D "e_c=$e_c e_d=$e_d portal_error=$portal_error errorDescription=$errorDescription"
+                LOG E "${BaseName}" -p user.err "$portal_error $errorDescription EXIT!"
                 exit
             fi
         fi
@@ -256,11 +258,7 @@ while [ true ]; do
         if [ "$SHOULD_STOP" = true ]; then
             break
         elif [ "$SHOULD_STOP" = false ]; then
-            SLEEP_TIME="60"
-            logger -t "${BaseName}" -p user.notice "Reconnecting: $RECONN_COUNT TIME"
-            let RECONN_COUNT++
-            echo Reconnecting: $RECONN_COUNT TIME
-            start_auth
+            restart_auth
         fi
     fi
     sleep $SLEEP_TIME
