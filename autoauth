@@ -8,16 +8,31 @@ stop() {
 start() {
     stop
     logger -t "autoauth" -p user.info "HELLO!"
-    /etc/${PNAME} &
+    /etc/${PNAME} >/dev/null 2>&1 &
+}
+boot() {
+    logger -t "autoauth" -p user.info "HELLO!"
+    /etc/${PNAME} >/dev/null 2>&1 &
+}
+NET_AVAILABLE() {
+    if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
+        logger -t "autoauth" -p user.info "The internet connection works!"
+        return 0
+    else
+        return 1
+    fi
 }
 restart() {
     local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:59:59')" +%s)
     local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
     local TIME_CUR=$(date +%s)
-    if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
-        logger -t "autoauth" -p user.info "The internet connection works!"
-    elif [ ${TIME_CUR} -lt ${TIME_STOP1} ] || [ ${TIME_CUR} -gt ${TIME_STOP2} ]; then
-        stop
-        start
+    if !(NET_AVAILABLE); then
+        if [ ${TIME_CUR} -lt ${TIME_STOP1} ] || [ ${TIME_CUR} -gt ${TIME_STOP2} ]; then
+            stop
+            start
+        fi
     fi
+}
+reload() {
+    restart
 }
