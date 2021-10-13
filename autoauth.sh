@@ -58,6 +58,7 @@ function urldecode() {
         echo -e "${_//%/\\x}"
     else
         echo "Usage: urldecode <string-to-urldecode>"
+        return 1
     fi
 }
 
@@ -67,6 +68,7 @@ function encodeURIComponent() {
         local data="$(echo $data | curl -Gso /dev/null -w %{url_effective} --data-urlencode @- "" | sed -E 's/..(.*).../\1/')"
     else
         echo "Usage: encodeURIComponent <string-to-urlencode>"
+        return 1
     fi
     echo "${data##/?}"
 }
@@ -78,28 +80,27 @@ function get_json_value() {
     echo "${value}"
 }
 
-function check_SHOULD_STOP() {
-    SHOULD_STOP=false
+function SHOULD_STOP() {
     local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:59:59')" +%s)
     local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
     local TIME_CUR=$(date +%s)
     if [ "${portServIncludeFailedCode}" = "63027" ]; then
         if [ ${TIME_CUR} -gt ${TIME_STOP1} ] || [ ${TIME_CUR} -lt ${TIME_STOP2} ]; then
-            SHOULD_STOP=true
+            return 0
+        else
+            return 1
         fi
-    fi
-    if [ "$SHOULD_STOP" = true ]; then
-        LOG I "EXIT!"
-        exit
+    else
+        return 1
     fi
 }
 
-function check_connect() {
+function NET_AVAILABLE() {
     if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
-        CONNECT=true
         RECONN_COUNT="0"
+        return 0
     else
-        CONNECT=false
+        return 1
     fi
 }
 
@@ -208,7 +209,7 @@ function start_auth() {
                     LOG E "EXIT!"
                     exit
                 fi
-                check_SHOULD_STOP
+                SHOULD_STOP && exit
             elif [ -n "${portServErrorCode}" ]; then
                 LOG E "${v_errorInfo}"
                 SLEEP_TIME="1"
@@ -236,9 +237,8 @@ function start_auth() {
 }
 start_auth
 
-while [ true ]; do
-    check_connect
-    if [ "$CONNECT" = true ]; then
+while true; do
+    if (NET_AVAILABLE); then
         TIME_CUR=$(date +%s)
         TMP=$(($TIME_CUR - $CONNECT_TIME))
         if [ "${requires_heartBeat}" = true ]; then
@@ -246,11 +246,10 @@ while [ true ]; do
                 doHeartBeat
             fi
         fi
-    elif [ "$CONNECT" = false ]; then
-        check_SHOULD_STOP
-        if [ "$SHOULD_STOP" = true ]; then
+    else
+        if (SHOULD_STOP); then
             break
-        elif [ "$SHOULD_STOP" = false ]; then
+        else
             restart_auth
         fi
     fi
