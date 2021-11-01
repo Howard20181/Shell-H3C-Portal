@@ -6,7 +6,7 @@ BasePath=$(
 #DEBUG=1
 CONF="${BasePath}"/user.conf
 BaseName=$(basename $BASH_SOURCE)
-function LOG() {
+LOG() {
     if [ -n "${2}" ]; then
         if [ "${1}" == "E" ]; then
             logger -t "${BaseName}" -p user.err "${2}"
@@ -52,7 +52,7 @@ uamInitLogo="H3C"
 SLEEP_TIME="1"
 RECONN_COUNT="0"
 
-function urldecode() {
+urldecode() {
     if [ -n "${1}" ]; then
         : "${*//+/ }"
         echo -e "${_//%/\\x}"
@@ -62,7 +62,7 @@ function urldecode() {
     fi
 }
 
-function encodeURIComponent() {
+encodeURIComponent() {
     local data=$1
     if [ -n "$1" ]; then
         local data="$(echo $data | curl -Gso /dev/null -w %{url_effective} --data-urlencode @- "" | sed -E 's/..(.*).../\1/')"
@@ -73,14 +73,14 @@ function encodeURIComponent() {
     echo "${data##/?}"
 }
 
-function get_json_value() {
+get_json_value() {
     local json="${1}"
     local key="${2}"
     local value=$(jsonfilter -e "$.$key" <<<$json)
     echo "${value}"
 }
 
-function SHOULD_STOP() {
+SHOULD_STOP() {
     local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:59:59')" +%s)
     local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
     local TIME_CUR=$(date +%s)
@@ -95,7 +95,7 @@ function SHOULD_STOP() {
     fi
 }
 
-function NET_AVAILABLE() {
+NET_AVAILABLE() {
     if [ $(curl -sI -w "%{http_code}" -o /dev/null connect.rom.miui.com/generate_204) = 204 ]; then
         RECONN_COUNT="0"
         return 0
@@ -104,7 +104,7 @@ function NET_AVAILABLE() {
     fi
 }
 
-function doHeartBeat() {
+doHeartBeat() {
     local TIME=$(date '+%Y-%m-%d %H:%M:%S')
     LOG I "Start do HeartBeat ${TIME}"
     local userDevPort=$(get_json_value $v_json userDevPort)
@@ -126,7 +126,7 @@ function doHeartBeat() {
     CONNECT_TIME=$(date +%s)
     LOG D "doHeartBeat_INFO: $doHeartBeat_INFO"
 }
-function restart_auth() {
+restart_auth() {
     let RECONN_COUNT++
     SLEEP_TIME=$(expr $SLEEP_TIME \* $RECONN_COUNT)
     LOG N "Wait ${SLEEP_TIME}s"
@@ -134,7 +134,7 @@ function restart_auth() {
     LOG N "Reconnecting: $RECONN_COUNT TIME"
     start_auth
 }
-function start_auth() {
+start_auth() {
     LOG I "Start auth"
     LOG I "Send Login request"
     local PWD_BASE64="$(printf $PWD | base64)"
@@ -209,7 +209,11 @@ function start_auth() {
                     LOG E "EXIT!"
                     exit
                 fi
-                SHOULD_STOP && exit
+                while SHOULD_STOP; do
+                    LOG D "sleep 1s"
+                    sleep 1
+                done
+                LOG I "continue"
             elif [ -n "${portServErrorCode}" ]; then
                 LOG E "${v_errorInfo}"
                 SLEEP_TIME="1"
@@ -247,11 +251,12 @@ while true; do
             fi
         fi
     else
-        if (SHOULD_STOP); then
-            break
-        else
-            restart_auth
-        fi
+        while SHOULD_STOP; do
+            LOG D "sleep 1s"
+            sleep 1
+        done
+        LOG I "continue"
+        restart_auth
     fi
     sleep $SLEEP_TIME
 done
