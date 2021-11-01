@@ -23,14 +23,10 @@ NET_AVAILABLE() {
     fi
 }
 restart() {
-    local TIME_STOP1=$(date -d "$(date '+%Y-%m-%d 23:59:59')" +%s)
-    local TIME_STOP2=$(date -d "$(date '+%Y-%m-%d 07:00:00')" +%s)
     local TIME_CUR=$(date +%s)
     if !(NET_AVAILABLE); then
-        if [ ${TIME_CUR} -lt ${TIME_STOP1} ] || [ ${TIME_CUR} -gt ${TIME_STOP2} ]; then
-            stop
-            start
-        fi
+        stop
+        start
     fi
 }
 reload() {
