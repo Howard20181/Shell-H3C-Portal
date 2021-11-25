@@ -1,11 +1,11 @@
 # Shell-H3C-Portal
 
-+ ## OpenWrt is not pre-installed with bash, please install it manually
+Tested in Openwrt 21.02.1.
 
-+ ## For non-OpenWrt users please use the main branch
+## Dependencies
 
-~~## Discontinued~~
++ base64
 
-~~This script was discontinued for maintenance as our school stopped using this authentication system.~~
++ curl
 
-New Project: [Shell-H3C-BYOD](https://github.com/Howard20181/Shell-H3C-BYOD)
+## For non-OpenWrt users please use the main branch

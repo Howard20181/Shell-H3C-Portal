@@ -1,11 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 BasePath=$(
-    cd $(dirname ${BASH_SOURCE})
+    cd $(dirname $0)
     pwd
 )
-#DEBUG=1
+# DEBUG=1
 CONF="${BasePath}"/user.conf
-BaseName=$(basename $BASH_SOURCE)
+BaseName=$(basename $0)
 LOG() {
     if [ -n "${2}" ]; then
         if [ "${1}" == "E" ]; then
@@ -54,8 +54,7 @@ RECONN_COUNT="0"
 
 urldecode() {
     if [ -n "${1}" ]; then
-        : "${*//+/ }"
-        echo -e "${_//%/\\x}"
+        echo $1 | sed "s@+@ @g;s@%@\\\\x@g" | xargs -0 printf "%b"
     else
         echo "Usage: urldecode <string-to-urldecode>"
         return 1
@@ -76,7 +75,7 @@ encodeURIComponent() {
 get_json_value() {
     local json="${1}"
     local key="${2}"
-    local value=$(jsonfilter -e "$.$key" <<<$json)
+    local value=$(echo $json | jsonfilter -e "$.$key")
     echo "${value}"
 }
 
@@ -127,7 +126,7 @@ doHeartBeat() {
     LOG D "doHeartBeat_INFO: $doHeartBeat_INFO"
 }
 restart_auth() {
-    let RECONN_COUNT++
+    RECONN_COUNT=$((RECONN_COUNT + 1))
     SLEEP_TIME=$(expr $SLEEP_TIME \* $RECONN_COUNT)
     LOG N "Wait ${SLEEP_TIME}s"
     sleep $SLEEP_TIME
@@ -151,12 +150,14 @@ start_auth() {
         -H 'Cookie: hello1='$USERID'; hello2=false; i_p_c_op=false; i_p_c_un='$USERID'' \
         --data-raw 'userName='$USERID'&userPwd='$PWD_BASE64_ENCODEURL'&language=Chinese&customPageId='$uamInitLogo'&pwdMode=0&portalProxyIP='$byodserverip'&portalProxyPort=50200&dcPwdNeedEncrypt=1&assignIpType=0&appRootUrl='$appRootUrl_ENCODEURL'' \
         --insecure)
+    LOG D "DATA=$DATA"
     if [ ! -n "${DATA}" ]; then #未收到回应，网络错误
         LOG E "Network error"
         restart_auth
     else #收到回应，可以连接上认证服务器
         LOG I "Analyzing authentication results"
-        local DATA_ENCODEURL=$(printf "%s" "${DATA}==" | base64 -d)
+        local DATA_ENCODEURL=$(printf "%s" "$DATA" | base64 -d)
+        LOG D "DATA_ENCODEURL=$DATA_ENCODEURL"
         local JSON=$(urldecode "${DATA_ENCODEURL}")
         LOG D "JSON: ${JSON}"
         local v_errorNumber=$(get_json_value "${JSON}" errorNumber)
