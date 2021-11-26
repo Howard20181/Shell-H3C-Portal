@@ -87,6 +87,7 @@ SHOULD_STOP() {
         if [ ${TIME_CUR} -gt ${TIME_STOP1} ] || [ ${TIME_CUR} -lt ${TIME_STOP2} ]; then
             return 0
         else
+            SLEEP_TIME="1"
             return 1
         fi
     else
@@ -211,8 +212,8 @@ start_auth() {
                     exit
                 fi
                 while SHOULD_STOP; do
-                    LOG D "sleep 1s"
-                    sleep 1
+                    LOG D "sleep ${SLEEP_TIME}s"
+                    sleep $SLEEP_TIME
                 done
                 LOG I "continue"
             elif [ -n "${portServErrorCode}" ]; then
@@ -253,8 +254,8 @@ while true; do
         fi
     else
         while SHOULD_STOP; do
-            LOG D "sleep 1s"
-            sleep 1
+            LOG D "sleep ${SLEEP_TIME}s"
+            sleep $SLEEP_TIME
         done
         LOG I "continue"
         restart_auth
