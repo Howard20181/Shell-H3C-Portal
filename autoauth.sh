@@ -91,6 +91,7 @@ SHOULD_STOP() {
             return 1
         fi
     else
+        SLEEP_TIME="1"
         return 1
     fi
 }
