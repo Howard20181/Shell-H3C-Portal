@@ -215,7 +215,7 @@ start_auth() {
             portServErrorCode=$(get_json_value "${JSON}" portServErrorCode)
             if [ -n "${portServIncludeFailedCode}" ]; then
                 LOG E "${portServIncludeFailedReason}"
-                if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" ]; then
+                if [ "${portServIncludeFailedCode}" = "63013" -o "${portServIncludeFailedCode}" = "63015" -o "${portServIncludeFailedCode}" = "63018" -o "${portServIncludeFailedCode}" = "63025" -o "${portServIncludeFailedCode}" = "63026" -o "${portServIncludeFailedCode}" = "63031" -o "${portServIncludeFailedCode}" = "63032" -o "${portServIncludeFailedCode}" = "63100" -o "${portServIncludeFailedCode}" = "63073" ]; then
                     LOG E "EXIT!"
                     exit
                 fi
