@@ -3,7 +3,7 @@
 START=96 #OpenWrt: 95 done
 PNAME="autoauth.sh"
 stop() {
-    killall -q ${PNAME}
+    pkill -f ${PNAME}
 }
 start() {
     stop
